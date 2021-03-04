@@ -4,6 +4,7 @@ from lxml import etree
 from datetime import datetime
 from ip2geotools.databases.noncommercial import DbIpCity
 import ipaddress
+import requests
 import tika
 import json
 import os
@@ -169,6 +170,22 @@ def is_ip_valid_ipv4(ele):
         return False
     if ele == "11.000.000.00":
         return False
+    if ele == "075.131.111.8":
+        return False
+    if ele == "094.80.89.179":
+        return False
+    if ele == "032.82.128.2":
+        return False
+    if ele == "096.81.199.172":
+        return False
+    if ele == "079.82.128.1":
+        return False
+    if ele == "093.41.243.139":
+        return False
+    if ele == "063.213.42.21":
+        return False
+    if ele == "027.196.209.36":
+        return False
     l = ele.split('.')
     if len(l) != 4:
         return False
@@ -210,6 +227,20 @@ def process_ip(detail):
     return ans
 
 
+def getting_location_from_ip(ip):
+    '''
+    getting the location from ip
+    '''
+    url = f"https://freegeoip.app/json/{ip}"
+    headers = {
+        'accept': "application/json",
+        'content-type': "application/json"
+    }
+    response = requests.request("GET", url, headers=headers)
+    respond = response.text
+    return respond
+
+
 def process_locations(email_detail):
     '''
     process locations infor
@@ -225,8 +256,8 @@ def process_locations(email_detail):
             if not is_ip_valid_ipv4(ip):
                 continue
             # convert JSON string into json (dict in python)
-            info_set.add(DbIpCity.get(ip, api_key='free').to_json())
-
+            # info_set.add(DbIpCity.get(ip, api_key='free').to_json())
+            info_set.add(getting_location_from_ip(ip))
     ans = []
 
     for info in info_set:
