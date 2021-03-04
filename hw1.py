@@ -2,10 +2,14 @@ from tika import parser
 from bs4 import BeautifulSoup
 from lxml import etree
 from datetime import datetime
+from ip2geotools.databases.noncommercial import DbIpCity
+import ipaddress
 import tika
 import json
 import os
 import xml.etree.ElementTree as ET
+import re
+
 tika.initVM()
 
 # use this to run in the command line to get the json file
@@ -65,6 +69,7 @@ def process_5a(file_path):
     '''
     search reconnaissance/social engr/malware/credential phishing based on key words/pharses
     return dict in homework 1 5a
+    or we could get frequent words, find stop words online or use regular experssisons for pattern searching 
     '''
     reconnaissance_phrases = ["reply back", "click here", "keep confidential"]
     social_engr_phrases = ["your friend",
@@ -117,10 +122,117 @@ def process_time_parser(time_str):
     string = ""
     time_strs = time_str.split(' ')
     for i in range(len(time_strs) - 1):
-        string += time_strs[i + 1]
+        string += time_strs[i + 1] + " "
+    # cut the string
+    string = string.strip()
     format_str = "%m/%d/%Y (%H:%M:%S)"
     datetime_strp = datetime.strptime(string, "%a %b  %d %H:%M:%S %Y")
     return datetime.strftime(datetime_strp, format_str)
+
+
+def process_relationship(content, email_detail):
+    '''
+    process relationship based on the content and the email detail
+    return relationship dict
+    '''
+    ans = {}
+    meet_online = ["online", "from the internet", "no previous coorespondence"]
+    friends = ["friend"]
+    friends_of_friends = ["know somebody", ""]
+    next_kins = ["next of kin.", "kin", "relatives", ]
+    met_before = ["meet before"]
+    claimed_to_be_superior = ["prince", "colonel", "military", "nonprofit", "royal majesty",
+                              "minister", "ruler", "federal government",  "col.", "first lady", "president"]
+
+    ans["isMeetOnline"] = check_if_exist(meet_online, content, "")
+    ans["isFriend"] = check_if_exist(friends, content, "")
+    ans["isFriendOfFriends"] = check_if_exist(friends_of_friends, content, "")
+    ans["isKins"] = check_if_exist(next_kins, content, "")
+    ans["isMetBefore"] = check_if_exist(met_before, content, "")
+    ans["isClaimedToBeSuperior"] = check_if_exist(
+        claimed_to_be_superior, content, "")
+    return ans
+
+
+def is_ip_valid_ipv4(ele):
+    if ele == "172.52.42.007":
+        return False
+    if ele == "35.000.000.00":
+        return False
+    if ele == "117.52.42.007":
+        return False
+    if ele == "20.100.000.00":
+        return False
+    if ele == "044.62.177.189":
+        return False
+    if ele == "3.0.32.200":
+        return False
+    if ele == "11.000.000.00":
+        return False
+    l = ele.split('.')
+    if len(l) != 4:
+        return False
+
+    for e in l:
+        if not e.isdigit():
+            return False
+        if int(e) < 0 or int(e) > 255:
+            return False
+    return True
+
+
+def process_ip(detail):
+    '''
+    work out for ip addresses for sender locations
+    ref link: https://www.geeksforgeeks.org/extract-ip-address-from-file-using-python/
+    '''
+    ip_pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+    ip_list = []
+    for k in detail.keys():
+        if isinstance(detail[k], list):
+            for ele in detail[k]:
+                if isinstance(ele, str):
+                    res = ip_pattern.search(ele)
+                    if (res):
+                        ip_list.append(res[0])
+        elif isinstance(detail[k], str):
+            res = ip_pattern.search(detail[k])
+            if (res):
+                ip_list.append(res[0])
+
+    ans = []
+    # could only check for ipv4 public IP addresses
+    for ele in ip_list:
+        if is_ip_valid_ipv4(ele):
+            ip_address = ipaddress.ip_address(ele)
+            if not ip_address.is_private:
+                ans.append(ele)
+    return ans
+
+
+def process_locations(email_detail):
+    '''
+    process locations infor
+    return set of json strings
+    ref link https://pypi.org/project/ip2geotools/
+    '''
+    sender_ip_address = process_ip(email_detail)
+
+    info_set = set()
+    if (sender_ip_address):
+        for ip in sender_ip_address:
+            print(ip)
+            if not is_ip_valid_ipv4(ip):
+                continue
+            # convert JSON string into json (dict in python)
+            info_set.add(DbIpCity.get(ip, api_key='free').to_json())
+
+    ans = []
+
+    for info in info_set:
+        ans.append(json.loads(info))
+
+    return ans
 
 
 def process_5b(file_path):
@@ -152,7 +264,14 @@ def process_5b(file_path):
             data[key]["createdAt"] = process_time_parser(
                 data[key]["MboxParser-from"])
 
-    # location loop up
+        # location loop up part v
+        # do this link https://towardsdatascience.com/geoparsing-with-python-c8f4c9f78940
+        data[key]["Locations"] = process_locations(
+            data[key])
+        # relationship loop up part vi
+        data[key]["relationships"] = process_relationship(
+            content_lowercase, data[key])
+
     return data
 
 
@@ -167,4 +286,5 @@ if __name__ == "__main__":
     #json_data_5a = process_5a(json_file_string_context_path)
     json_file_5a_path = os.getcwd() + "\emails_context_5a.json"
     json_data_5b = process_5b(json_file_5a_path)
-    print(json_data_5b["202"]["createdAt"])
+
+    print(json_data_5b["202"]["relationships"])
