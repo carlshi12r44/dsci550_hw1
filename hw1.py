@@ -2,8 +2,12 @@ from tika import parser
 from bs4 import BeautifulSoup
 from lxml import etree
 from datetime import datetime
+from nltk.sentiment import SentimentIntensityAnalyzer
 from ip2geotools.databases.noncommercial import DbIpCity
+from spellchecker import SpellChecker
+from nltk.corpus import brown
 import ipaddress
+import nltk
 import requests
 import tika
 import json
@@ -51,7 +55,7 @@ def split_big_json_into_jsons(file_path):
         else:
             continue
         res[i] = data[i]
-    print(len(res))
+
     return res
 
 
@@ -83,7 +87,6 @@ def process_5a(file_path):
 
     for key in data.keys():
         # first is all meta data, don't process it
-        print(key)
         content_lowercase = data[key]["X-TIKA:content"].lower().replace('\n', ' ')
 
         if "dc:title" in data[key].keys():
@@ -153,6 +156,17 @@ def process_relationship(content, email_detail):
     ans["isClaimedToBeSuperior"] = check_if_exist(
         claimed_to_be_superior, content, "")
     return ans
+
+
+def analyze_email_sentiment(email: str) -> bool:
+    '''
+    analyze the email sentiment, 
+    return True if the email has positive compound sentiment
+    False otherwise
+    '''
+
+    sia = SentimentIntensityAnalyzer()
+    return sia.polarity_scores(email)["compound"] > 0
 
 
 def is_ip_valid_ipv4(ele):
@@ -252,7 +266,6 @@ def process_locations(email_detail):
     info_set = set()
     if (sender_ip_address):
         for ip in sender_ip_address:
-            print(ip)
             if not is_ip_valid_ipv4(ip):
                 continue
             # convert JSON string into json (dict in python)
@@ -264,6 +277,46 @@ def process_locations(email_detail):
         ans.append(json.loads(info))
 
     return ans
+
+
+def count_misspellings(email: str) -> int:
+    '''
+    process language style in part viii misspellings
+    '''
+
+    word_dict = set(brown.words())
+    email_words_list = email.split(" ")
+    counts = 0
+    for email_word in email_words_list:
+        if email_word in word_dict:
+            counts += 1
+    return counts
+
+
+def count_random_caps(email: str) -> int:
+    '''
+    count random capitalizations
+    '''
+    counts = 0
+    email_words_list = email.split(" ")
+    for email_word in email_words_list:
+        if (is_random_caps(email_word)):
+            counts += 1
+    return counts
+
+
+def is_random_caps(word: str) -> bool:
+    counts = 0
+    for i in range(len(word)):
+        if word[i].isupper():
+            counts += 1
+    # check if the word is all caps, if yes return False
+    if counts == len(word):
+        return False
+    for i in range(len(word)):
+        if word[i].isupper() and i != 0:
+            return True
+    return False
 
 
 def process_5b(file_path):
@@ -281,8 +334,8 @@ def process_5b(file_path):
     attackers_offerings = ["money", "offer", "dollars", "funds", ""]
 
     for key in data.keys():
-        print(key)
-        content_lowercase = data[key]["X-TIKA:content"].lower().replace('\n', ' ')
+        content_lowercase = data[key]["X-TIKA:content"].lower().replace(
+            '\n', ' ').replace(".", " ").replace(":", " ")
         data[key]["isAttackerSuperior"] = check_if_exist(
             attacker_titles, content_lowercase, "")
         data[key]["isUrgent"] = check_if_exist(
@@ -297,16 +350,28 @@ def process_5b(file_path):
 
         # location loop up part v
         # do this link https://towardsdatascience.com/geoparsing-with-python-c8f4c9f78940
-        data[key]["Locations"] = process_locations(
+        data[key]["locations"] = process_locations(
             data[key])
         # relationship loop up part vi
         data[key]["relationships"] = process_relationship(
             content_lowercase, data[key])
 
+        # part vii
+        data[key]["sentiment"] = analyze_email_sentiment(content_lowercase)
+
+        # part viii
+        data[key]["misspellings"] = count_misspellings(content_lowercase)
+
+        data[key]["randomCaps"] = count_random_caps(
+            data[key]["X-TIKA:content"].replace('\n', ' ').replace(".", " ").replace(":", " "))
+
     return data
 
 
 if __name__ == "__main__":
+    nltk.download('vader_lexicon')
+    nltk.download('brown')
+
     # execute function
 
     # json_file_path = os.getcwd() + "\emails_context.json"
@@ -317,5 +382,6 @@ if __name__ == "__main__":
     #json_data_5a = process_5a(json_file_string_context_path)
     json_file_5a_path = os.getcwd() + "\emails_context_5a.json"
     json_data_5b = process_5b(json_file_5a_path)
-
-    print(json_data_5b["202"]["relationships"])
+    # with open("emails_context_5b_to_vi.json", "w") as out_file:
+    #     json.dump(json_data_5b, out_file)
+    print(json_data_5b["202"])
