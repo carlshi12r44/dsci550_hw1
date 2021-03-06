@@ -14,6 +14,8 @@ import json
 import os
 import xml.etree.ElementTree as ET
 import re
+import random
+import config
 
 tika.initVM()
 
@@ -268,8 +270,7 @@ def process_locations(email_detail):
         for ip in sender_ip_address:
             if not is_ip_valid_ipv4(ip):
                 continue
-            # convert JSON string into json (dict in python)
-            # info_set.add(DbIpCity.get(ip, api_key='free').to_json())
+            print(ip)
             info_set.add(getting_location_from_ip(ip))
     ans = []
 
@@ -279,12 +280,11 @@ def process_locations(email_detail):
     return ans
 
 
-def count_misspellings(email: str) -> int:
+def count_misspellings(email: str, word_dict: set) -> int:
     '''
     process language style in part viii misspellings
     '''
 
-    word_dict = set(brown.words())
     email_words_list = email.split(" ")
     counts = 0
     for email_word in email_words_list:
@@ -306,6 +306,9 @@ def count_random_caps(email: str) -> int:
 
 
 def is_random_caps(word: str) -> bool:
+    '''
+    find numbers of random capitalizations
+    '''
     counts = 0
     for i in range(len(word)):
         if word[i].isupper():
@@ -317,6 +320,35 @@ def is_random_caps(word: str) -> bool:
         if word[i].isupper() and i != 0:
             return True
     return False
+
+
+def process_estimate_age(email: str) -> str:
+    '''
+    process estimated age 
+    '''
+    age = random.randint(30, 70)
+
+    return f"{age}\t{email}"
+
+
+def check_email_ip_score(info: list) -> str:
+    '''
+    check email ip fraud score, with 
+    return the fraud score, 0 meaning no fraud, 100 meaning much fraud, -1 means no ip found so no results
+    remember create config.py and assign private key
+
+    '''
+    url_prefix = "https://ipqualityscore.com/api/json/ip/"
+    if info:
+        ip_address = info[0]["ip"]
+        r = requests.get(
+            url_prefix + config.ip_score_check_api_key + "/" + ip_address)
+        response = json.loads(r.text)
+        if response["success"]:
+            return int(response["fraud_score"])
+
+    #
+    return -1
 
 
 def process_5b(file_path):
@@ -332,8 +364,12 @@ def process_5b(file_path):
                        "royal majesty", "minister", "ruler", "federal government", "kin", "relatives"]
     urgent_words_list = ["urgent", "now"]
     attackers_offerings = ["money", "offer", "dollars", "funds", ""]
+    word_dict = set(brown.words())
+    # part ix estimate age list init
+    estimated_ages_list = []
 
     for key in data.keys():
+        print(key)
         content_lowercase = data[key]["X-TIKA:content"].lower().replace(
             '\n', ' ').replace(".", " ").replace(":", " ")
         data[key]["isAttackerSuperior"] = check_if_exist(
@@ -347,7 +383,6 @@ def process_5b(file_path):
         elif "MboxParser-from" in data[key].keys():
             data[key]["createdAt"] = process_time_parser(
                 data[key]["MboxParser-from"])
-
         # location loop up part v
         # do this link https://towardsdatascience.com/geoparsing-with-python-c8f4c9f78940
         data[key]["locations"] = process_locations(
@@ -355,15 +390,29 @@ def process_5b(file_path):
         # relationship loop up part vi
         data[key]["relationships"] = process_relationship(
             content_lowercase, data[key])
-
         # part vii
         data[key]["sentiment"] = analyze_email_sentiment(content_lowercase)
-
         # part viii
-        data[key]["misspellings"] = count_misspellings(content_lowercase)
-
+        data[key]["misspellings"] = count_misspellings(
+            content_lowercase, word_dict)
         data[key]["randomCaps"] = count_random_caps(
             data[key]["X-TIKA:content"].replace('\n', ' ').replace(".", " ").replace(":", " "))
+        # part ix
+        estimated_ages_list.append(process_estimate_age(
+            data[key]["X-TIKA:content"].replace('\n', ' ')))
+        # part x
+        data[key]["fraudScore"] = check_email_ip_score(data[key]["locations"])
+
+    len_estimated_ages = len(estimated_ages_list)
+    # write each element in the list to the text file
+    with open('estimate_ages_list_train.txt', 'w', encoding='utf-8') as output_file:
+        for i in range(int(len_estimated_ages * 0.8)):
+            output_file.write("%s\n" % estimated_ages_list[i])
+    k = int(len_estimated_ages*0.8)
+    with open('estimate_ages_list_test.txt', 'w', encoding='utf-8') as output_file:
+        while k != len(estimated_ages_list):
+            output_file.write("%s\n" % estimated_ages_list[k])
+            k += 1
 
     return data
 
@@ -382,6 +431,6 @@ if __name__ == "__main__":
     #json_data_5a = process_5a(json_file_string_context_path)
     json_file_5a_path = os.getcwd() + "\emails_context_5a.json"
     json_data_5b = process_5b(json_file_5a_path)
-    # with open("emails_context_5b_to_vi.json", "w") as out_file:
-    #     json.dump(json_data_5b, out_file)
+    with open("emails_context_5b.json", "w") as out_file:
+        json.dump(json_data_5b, out_file)
     print(json_data_5b["202"])
