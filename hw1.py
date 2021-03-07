@@ -405,14 +405,14 @@ def process_5b(file_path):
 
     len_estimated_ages = len(estimated_ages_list)
     # write each element in the list to the text file
-    with open('estimate_ages_list_train.txt', 'w', encoding='utf-8') as output_file:
-        for i in range(int(len_estimated_ages * 0.8)):
-            output_file.write("%s\n" % estimated_ages_list[i])
-    k = int(len_estimated_ages*0.8)
-    with open('estimate_ages_list_test.txt', 'w', encoding='utf-8') as output_file:
-        while k != len(estimated_ages_list):
-            output_file.write("%s\n" % estimated_ages_list[k])
-            k += 1
+    # with open('estimate_ages_list_train.txt', 'w', encoding='utf-8') as output_file:
+    #     for i in range(int(len_estimated_ages * 0.8)):
+    #         output_file.write("%s\n" % estimated_ages_list[i])
+    # k = int(len_estimated_ages*0.8)
+    # with open('estimate_ages_list_test.txt', 'w', encoding='utf-8') as output_file:
+    #     while k != len(estimated_ages_list):
+    #         output_file.write("%s\n" % estimated_ages_list[k])
+    #         k += 1
 
     return data
 
@@ -431,6 +431,6 @@ if __name__ == "__main__":
     #json_data_5a = process_5a(json_file_string_context_path)
     json_file_5a_path = os.getcwd() + "\emails_context_5a.json"
     json_data_5b = process_5b(json_file_5a_path)
-    with open("emails_context_5b.json", "w") as out_file:
-        json.dump(json_data_5b, out_file)
+    # with open("emails_context_5b.json", "w") as out_file:
+    #     json.dump(json_data_5b, out_file)
     print(json_data_5b["202"])
