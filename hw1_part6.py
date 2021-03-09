@@ -221,6 +221,7 @@ if __name__ == "__main__":
     with open("email_context_part6_complete.json", "w") as out:
         json.dump(json_data_part6_with_age_estimates, out)
 
+    
     # malicious_urls_xml_path = os.getcwd() + "\data\malicious_urls.html"
     # malicious_dict = process_malious_html(malicious_urls_xml_path)
     # print(json_data_part6_data["7"]["urls"][0][0])
