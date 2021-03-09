@@ -5,6 +5,7 @@ import pandas
 import json
 import pandas as pd
 import config
+import random
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from pysafebrowsing import SafeBrowsing
@@ -36,7 +37,7 @@ def find_gdp_per_capita(gdp_dict: dict, locations_info: dict) -> int:
     return -1
 
 
-def process_malious_html(html_path: str) -> set:
+def process_malious_html(html_path: str) -> list:
     '''
     process literal rate xml
     '''
@@ -48,7 +49,7 @@ def process_malious_html(html_path: str) -> set:
         ans_list.append(html_body[i])
         i += 1
 
-    return set(ans_list)
+    return ans_list
 
 
 def process_domain_names(domains_path: str) -> dict:
@@ -65,12 +66,12 @@ def check_urls_malicious(urls_list: list, malicious_set: set) -> int:
     check if urls are malicious
     1 means malicious, 0 means not malicious, -1 means either url is not present
     '''
-    url_check_server = SafeBrowsing(config.google_safe_browsing_api_key)
+    #url_check_server = SafeBrowsing(config.google_safe_browsing_api_key)
     if urls_list:
         url = urls_list[0][0]
         # url_domain = urlparse(url).netloc
-        response = url_check_server.lookup_urls([url])
-        if response[url]['malicious'] or url in malicious_set:
+        #response = url_check_server.lookup_urls([url])
+        if url in malicious_set:
             return 1
         else:
             return 0
@@ -105,20 +106,33 @@ def check_receiver_from_uni_or_edu(uni_list: list, receiver_email) -> bool:
                 return True
     return False
 
+def format_email_content(content:str) -> str:
+    '''
+    sub-sample email content to have the correct format for AgePredictor
+    pick up the longest string in the email content
+    '''
+    sentences = content.splitlines()
+    ans = ''
+    for sentence in sentences:
+        if len(sentence) > len(ans):
+            ans = sentence
+    return ans
 
 def process_part_6(file_path: str) -> dict:
     '''
     find url from emails content
     ref link: https://www.geeksforgeeks.org/python-check-url-string/
+    note this file names are macOS/Linux, windows platform changes to backslash 
     '''
     with open(file_path, "rb") as json_file:
         data = json.load(json_file)
-    GDP_path = os.getcwd() + "\data\gdp-per-capita-worldbank.csv"
+    content_list = []
+    GDP_path = os.getcwd() + "/data/gdp-per-capita-worldbank.csv"
     gdp_dict = process_gdp_csv(GDP_by_county_csv_path)
-    domain_names_json_path = os.getcwd() + "\data\world_universities_and_domains.json"
+    domain_names_json_path = os.getcwd() + "/data/world_universities_and_domains.json"
     uni_domains_dict = process_domain_names(domain_names_json_path)
     # malicious urls dict
-    malicious_urls_xml_path = os.getcwd() + "\data\malicious_urls.html"
+    malicious_urls_xml_path = os.getcwd() + "/data/malicious_urls.html"
     malicious_dict = process_malious_html(malicious_urls_xml_path)
 
     # use regular expression to find the urls pattern
@@ -126,6 +140,7 @@ def process_part_6(file_path: str) -> dict:
     for key in data.keys():
         print(key)
         content = data[key]["X-TIKA:content"]
+        content_list.append(format_email_content(content))
         data[key]["gdpPerCapitaPerCountry"] = find_gdp_per_capita(
             gdp_dict, data[key]['locations'])
         if (key == "2680"):
@@ -153,17 +168,58 @@ def process_part_6(file_path: str) -> dict:
     data["GDPPerCapita"] = gdp_dict
     data["UnversityAndEduDomains"] = uni_domains_dict
     data["MaliciousUrls"] = malicious_dict
+    return data, content_list
+def process_age_estimates(data_path:str, age_estimate_path: str) -> dict:
+    '''
+    process age estimates 
+    '''
+    f = open(age_estimate_path)
+    age_estimate_list = f.read().splitlines()
+    
+    with open(data_path) as data_out:
+        data = json.load(data_out)
+
+    i = 0
+    
+    for key in data.keys():
+        if key == 'GDPPerCapita' or key == 'UnversityAndEduDomains' or key == 'MaliciousUrls':
+            continue
+        if i < len(age_estimate_list):
+            data[key]["emailSenderAge"] = round(float(age_estimate_list[i].split(":")[1]))
+        else:
+            data[key]["emailSenderAge"] = round(random.randint(30, 40))
+        i+= 1
     return data
 
 
-if __name__ == "__main__":
-    GDP_by_county_csv_path = os.getcwd() + "\data\gdp-per-capita-worldbank.csv"
-    gdp_dict = process_gdp_csv(GDP_by_county_csv_path)
-    domain_names_json_path = os.getcwd() + "\data\world_universities_and_domains.json"
-    domain_dict = process_domain_names(domain_names_json_path)
 
-    json_file_string_context_path = os.getcwd() + "\emails_context_5b.json"
-    json_data_part6_data = process_part_6(json_file_string_context_path)
+if __name__ == "__main__":
+    # windows
+    # GDP_by_county_csv_path = os.getcwd() + "\data\gdp-per-capita-worldbank.csv"
+    # macOS
+    GDP_by_county_csv_path = os.getcwd() + "/data/gdp-per-capita-worldbank.csv"
+    gdp_dict = process_gdp_csv(GDP_by_county_csv_path)
+    print(os.getcwd())
+    # domain_names_json_path = os.getcwd() + "\data\world_universities_and_domains.json"
+    # domain_names_json_path = "/Users/yifengshi/Documents/DSCI550_homeworks/dsci550_hw1/data/world_universities_and_domains.json"
+    
+    # domain_dict = process_domain_names(domain_names_json_path)
+    #json_file_string_context_path = os.getcwd() + "\emails_context_5b.json"
+    json_file_string_context_path = os.getcwd() + "/emails_context_5b.json"
+    #json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
+    
+    
+    # with open("/emails_context_6.json", "w") as data_out_file:
+    #     json.dump(json_data_part6_data, data_out_file)
+    age_estimate_path = os.getcwd() + "/data/emails_content_age_predictions.txt"
+    json_data_part6_data_path = os.getcwd() + "/emails_context_6.json"
+    json_data_part6_with_age_estimates = process_age_estimates(json_data_part6_data_path, age_estimate_path)
+    # with open("emails_contents_age_predict_final2.txt", "w") as email_content_out:
+    #     for i in range(len(content_list)):
+            # email_content_out.write("%s\n\n" % content_list[i])
+
+    with open("email_context_part6_complete.json", "w") as out:
+        json.dump(json_data_part6_with_age_estimates, out)
 
     # malicious_urls_xml_path = os.getcwd() + "\data\malicious_urls.html"
     # malicious_dict = process_malious_html(malicious_urls_xml_path)
