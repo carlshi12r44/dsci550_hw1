@@ -77,6 +77,26 @@ def check_urls_malicious(urls_list: list, malicious_set: set) -> int:
             return 0
     return -1
 
+def process_uni_locations(uni_list:list, receiver_email) -> str:
+    '''
+    process university locations
+    '''
+    regex_pattern = "/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/"
+    email = ""
+    if isinstance(receiver_email, list):
+        if not re.fullmatch(regex_pattern, receiver_email[0]):
+            return False
+        email = receiver_email[0]
+    else:
+        if not re.fullmatch(regex_pattern, receiver_email):
+            return False
+        email = receiver_email
+    receiver_domain = email.split("@")[1]
+    for i in range(len(uni_list)):
+        for d in uni_list[i]['domains']:
+            if d == receiver_domain:
+                return uni_list[i]["country"]
+    return ""
 
 def check_receiver_from_uni_or_edu(uni_list: list, receiver_email) -> bool:
     '''
@@ -159,12 +179,19 @@ def process_part_6(file_path: str) -> dict:
         if "MboxParser-reply-to" in list(data[key].keys()) and data[key]["MboxParser-reply-to"]:
             data[key]["isReceiverFromEduOrUniversity"] = check_receiver_from_uni_or_edu(uni_domains_dict,
                                                                                         data[key]["MboxParser-reply-to"])
+            if data[key]["isReceiverFromEduOrUniversity"]:
+                data[key]["UniversityLocation"] = process_uni_locations(uni_domains_dict, data[key]["MboxParser-reply-to"])
         elif "Message-To" in list(data[key].keys()) and data[key]["Message-To"]:
             data[key]["isReceiverFromEduOrUniversity"] = check_receiver_from_uni_or_edu(uni_domains_dict,
                                                                                         data[key]["Message-To"])
+            if data[key]["isReceiverFromEduOrUniversity"]:
+                data[key]["UniversityLocation"] = process_uni_locations(uni_domains_dict, data[key]["Message-To"])
+
         elif "Message:Raw-Header:Reply-To" in list(data[key].keys()) and data[key]["Message:Raw-Header:Reply-To"]:
             data[key]["isReceiverFromEduOrUniversity"] = check_receiver_from_uni_or_edu(uni_domains_dict,
                                                                                         data[key]["Message:Raw-Header:Reply-To"])
+            if data[key]["isReceiverFromEduOrUniversity"]:
+                data[key]["UniversityLocation"] = process_uni_locations(uni_domains_dict, data[key]["Message:Raw-Header:Reply-To"])
     data["GDPPerCapita"] = gdp_dict
     data["UnversityAndEduDomains"] = uni_domains_dict
     data["MaliciousUrls"] = malicious_dict
@@ -206,11 +233,11 @@ if __name__ == "__main__":
     # domain_dict = process_domain_names(domain_names_json_path)
     #json_file_string_context_path = os.getcwd() + "\emails_context_5b.json"
     json_file_string_context_path = os.getcwd() + "/emails_context_5b.json"
-    #json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
+    json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
     
     
-    # with open("/emails_context_6.json", "w") as data_out_file:
-    #     json.dump(json_data_part6_data, data_out_file)
+    with open("emails_context_6.json", "w") as data_out_file:
+        json.dump(json_data_part6_data, data_out_file)
     age_estimate_path = os.getcwd() + "/data/emails_content_age_predictions.txt"
     json_data_part6_data_path = os.getcwd() + "/emails_context_6.json"
     json_data_part6_with_age_estimates = process_age_estimates(json_data_part6_data_path, age_estimate_path)

@@ -21,5 +21,5 @@ if __name__ == "__main__":
         print(k)
         if k == 'GDPPerCapita' or k == 'UnversityAndEduDomains' or k == 'MaliciousUrls':
             continue
-        with open(parent_directory + "email_content_" + k + ".json", "w") as email_out:
+        with open(parent_directory + "email_content_" + k + ".txt", "w") as email_out:
             json.dump(part6_data[k], email_out)
