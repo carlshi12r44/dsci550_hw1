@@ -6,9 +6,12 @@ import json
 import pandas as pd
 import config
 import random
+import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from pysafebrowsing import SafeBrowsing
+from os import listdir
+from os.path import isfile, join
 
 
 def process_gdp_csv(file_path: str) -> dict:
@@ -137,6 +140,34 @@ def format_email_content(content:str) -> str:
         if len(sentence) > len(ans):
             ans = sentence
     return ans
+def find_longest_context(text_body: str):
+    l = text_body.splitlines()
+    ans = ""
+    for li in l:
+        if len(li) > len(ans):
+            ans = li
+    return ans
+def find_age_training_set(corpus_path, save_path):
+    onlyfilenames = [f for f in listdir(corpus_path) if isfile(join(corpus_path, f))]
+    rows = []
+
+    special_chars_regex = r"\W+|_"
+    for i in range(round(0.1*len(onlyfilenames))):
+        print(i)
+        age = onlyfilenames[i].split('.')[2]
+        xml_string = open(corpus_path + "/" + onlyfilenames[i], "rb").read()
+        soup = BeautifulSoup(xml_string, "lxml")
+        columns = soup.findAll("post")
+        for col in columns:
+            context = re.sub(special_chars_regex, " ", col.text)
+            row = age + "\t" + context[1:]
+            rows.append(row)
+
+    with open("age_predict_train_set.txt", "w") as out:
+        for r in rows:
+            out.write("%s"%r)
+            out.write("\n")
+            out.write("\n")
 
 def process_part_6(file_path: str) -> dict:
     '''
@@ -225,20 +256,20 @@ if __name__ == "__main__":
     # GDP_by_county_csv_path = os.getcwd() + "\data\gdp-per-capita-worldbank.csv"
     # macOS
     GDP_by_county_csv_path = os.getcwd() + "/data/gdp-per-capita-worldbank.csv"
-    gdp_dict = process_gdp_csv(GDP_by_county_csv_path)
-    print(os.getcwd())
+    # gdp_dict = process_gdp_csv(GDP_by_county_csv_path)
+    # print(os.getcwd())
     # domain_names_json_path = os.getcwd() + "\data\world_universities_and_domains.json"
     # domain_names_json_path = "/Users/yifengshi/Documents/DSCI550_homeworks/dsci550_hw1/data/world_universities_and_domains.json"
     
     # domain_dict = process_domain_names(domain_names_json_path)
     #json_file_string_context_path = os.getcwd() + "\emails_context_5b.json"
     json_file_string_context_path = os.getcwd() + "/emails_context_5b.json"
-    json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
+    # json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
     
     
-    with open("emails_context_6.json", "w") as data_out_file:
-        json.dump(json_data_part6_data, data_out_file)
-    age_estimate_path = os.getcwd() + "/data/emails_content_age_predictions.txt"
+    # with open("emails_context_6.json", "w") as data_out_file:
+    #     json.dump(json_data_part6_data, data_out_file)
+    age_estimate_path = os.getcwd() + "/data/age_predictions_final_results.txt"
     json_data_part6_data_path = os.getcwd() + "/emails_context_6.json"
     json_data_part6_with_age_estimates = process_age_estimates(json_data_part6_data_path, age_estimate_path)
     # with open("emails_contents_age_predict_final2.txt", "w") as email_content_out:
@@ -251,4 +282,6 @@ if __name__ == "__main__":
     
     # malicious_urls_xml_path = os.getcwd() + "\data\malicious_urls.html"
     # malicious_dict = process_malious_html(malicious_urls_xml_path)
-    # print(json_data_part6_data["7"]["urls"][0][0])
+    
+
+    #find_age_training_set("/Users/yifengshi/Documents/DSCI550_homeworks/AgePredictor/data/blogs", os.getcwd() + "/data")
