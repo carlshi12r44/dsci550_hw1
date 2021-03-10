@@ -1,4 +1,7 @@
 /.vscode
+.ipynb_checkpoints/part7_notebook-checkpoint.ipynb
+data/d3_viz/.DS_Store
 config.py
 __pycache__
 /email_content_data_separate
+ipynb_checkpoints/

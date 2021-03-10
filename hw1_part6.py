@@ -106,7 +106,7 @@ def check_receiver_from_uni_or_edu(uni_list: list, receiver_email) -> bool:
     check if receiver from university org or nams edu orga
     '''
     # regular expression for email pattern
-    regex_pattern = "/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/"
+    regex_pattern = r"[^@]+@[^@]+\.[^@]+"
     email = ""
     if isinstance(receiver_email, list):
         if not re.fullmatch(regex_pattern, receiver_email[0]):
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     # domain_dict = process_domain_names(domain_names_json_path)
     #json_file_string_context_path = os.getcwd() + "\emails_context_5b.json"
     json_file_string_context_path = os.getcwd() + "/emails_context_5b.json"
-    # json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
+    json_data_part6_data, content_list = process_part_6(json_file_string_context_path)
     
     
     # with open("emails_context_6.json", "w") as data_out_file:
@@ -276,8 +276,8 @@ if __name__ == "__main__":
     #     for i in range(len(content_list)):
             # email_content_out.write("%s\n\n" % content_list[i])
 
-    with open("email_context_part6_complete.json", "w") as out:
-        json.dump(json_data_part6_with_age_estimates, out)
+    # with open("email_context_part6_complete.json", "w") as out:
+    #     json.dump(json_data_part6_with_age_estimates, out)
 
     
     # malicious_urls_xml_path = os.getcwd() + "\data\malicious_urls.html"
