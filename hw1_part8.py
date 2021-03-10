@@ -37,6 +37,8 @@ if __name__=="__main__":
        'misspellings', 'randomCaps', 'fraudScore', 'gdpPerCapitaPerCountry',
        'emailSenderAge','urls','anyUrlsInContent','numbersOfUrls','areUrlsMalicious','createdAt','isReceiverFromEduOrUniversity']]
 
-    store_df_arr_to_csv('Author',dataframe_for_extraction['Author'])
+    # store_df_arr_to_csv('Author',dataframe_for_extraction['Author'])
+    similarity_score_csv_path = os.getcwd() + '/data/part7_outputs/jaccard_distance_output_renamed.csv'
+    jaccard_scores_df = pd.read_csv(similarity_score_csv_path)
     
     
